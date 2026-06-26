@@ -1,0 +1,5 @@
+work/*.dbf
+__pycache__/
+*.pyc
+.venv/
+venv/

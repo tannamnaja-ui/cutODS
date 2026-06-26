@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<title>ตัด ODS ออกจากฟิลด์ AN (DBF)</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <h1>โปรแกรมตัดคำว่า ODS ออกจากฟิลด์ AN (ไฟล์ DBF)</h1>
+  </header>
+
+  <main>
+    <section class="panel">
+      <div class="file-picker">
+        <input type="file" id="fileInputFallback" accept=".dbf" hidden>
+        <button type="button" id="btnImport">เลือกไฟล์ DBF...</button>
+        <span id="fileLabel">ยังไม่ได้เลือกไฟล์</span>
+      </div>
+      <div class="actions">
+        <button id="btnCut" disabled>ตัด ODS</button>
+        <button id="btnExport" disabled>ส่งออกเป็น DBF</button>
+      </div>
+    </section>
+
+    <section id="status" class="status"></section>
+
+    <section class="table-wrap">
+      <table id="dataTable">
+        <thead><tr id="tableHead"></tr></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
