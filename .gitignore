@@ -1,5 +1,9 @@
-work/*.dbf
 __pycache__/
 *.pyc
 .venv/
 venv/
+build/
+dist/
+installer/redist/
+installer/output/
+*.spec

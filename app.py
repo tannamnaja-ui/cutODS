@@ -1,14 +1,32 @@
 import os
 import struct
+import sys
+import tempfile
 import uuid
+
+# เมื่อ build ด้วย PyInstaller --noconsole, sys.stdout/stderr เป็น None
+# ทำให้ logging ของ Flask/Werkzeug พังตอนเขียน log ต้องกันไว้ก่อน import flask
+if sys.stdout is None:
+    sys.stdout = open(os.devnull, "w")
+if sys.stderr is None:
+    sys.stderr = open(os.devnull, "w")
 
 from flask import Flask, jsonify, render_template, request, send_file, abort
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-WORK_DIR = os.path.join(BASE_DIR, "work")
+if getattr(sys, "frozen", False):
+    BASE_DIR = sys._MEIPASS
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# เก็บไฟล์ทำงานชั่วคราวไว้ใน temp ของระบบ เพื่อให้เขียนได้แน่นอนไม่ว่าจะติดตั้งโปรแกรมไว้ที่ใด
+WORK_DIR = os.path.join(tempfile.gettempdir(), "CUTODSAN_FOR_DRG", "work")
 os.makedirs(WORK_DIR, exist_ok=True)
 
-app = Flask(__name__)
+app = Flask(
+    __name__,
+    template_folder=os.path.join(BASE_DIR, "templates"),
+    static_folder=os.path.join(BASE_DIR, "static"),
+)
 app.config["MAX_CONTENT_LENGTH"] = 200 * 1024 * 1024  # 200MB
 
 # work_id -> {"path": str, "filename": str, "header": dict}
@@ -204,5 +222,46 @@ def export(work_id):
     return send_file(work["path"], as_attachment=True, download_name=work["filename"])
 
 
+HOST = "127.0.0.1"
+PORT = 5008
+
+
+def _port_in_use(host: str, port: int) -> bool:
+    import socket
+
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.bind((host, port))
+        return False
+    except OSError:
+        return True
+    finally:
+        s.close()
+
+
+def _open_browser_when_ready():
+    import time
+    import urllib.request
+    import webbrowser
+
+    url = f"http://{HOST}:{PORT}/"
+    for _ in range(50):
+        try:
+            urllib.request.urlopen(url, timeout=0.3)
+            break
+        except Exception:
+            time.sleep(0.2)
+    webbrowser.open(url)
+
+
 if __name__ == "__main__":
-    app.run(host="127.0.0.1", port=5008, debug=True)
+    if _port_in_use(HOST, PORT):
+        # โปรแกรมรันอยู่แล้ว (เปิดซ้ำ) แค่เปิดเบราว์เซอร์ไปที่หน้าเดิม
+        import webbrowser
+
+        webbrowser.open(f"http://{HOST}:{PORT}/")
+    else:
+        import threading
+
+        threading.Thread(target=_open_browser_when_ready, daemon=True).start()
+        app.run(host=HOST, port=PORT, debug=False, use_reloader=False)
