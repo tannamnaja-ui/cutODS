@@ -1,6 +1,7 @@
 const btnImport = document.getElementById("btnImport");
 const fileInputFallback = document.getElementById("fileInputFallback");
 const btnCut = document.getElementById("btnCut");
+const btnExportAll = document.getElementById("btnExportAll");
 const statusEl = document.getElementById("status");
 const filesContainer = document.getElementById("filesContainer");
 
@@ -137,6 +138,7 @@ function finishImport(totalSelected, kept) {
     msg += ` (ข้าม ${skipped} ไฟล์ที่ไม่มีฟิลด์ AN)`;
   }
   btnCut.disabled = !fileEntries.some((e) => e.an_field_found);
+  btnExportAll.disabled = fileEntries.length === 0;
   setStatus(msg, kept > 0 ? "ok" : "error");
 }
 
@@ -202,8 +204,19 @@ btnCut.addEventListener("click", async () => {
   setStatus(`ตัดคำว่า ODS เสร็จสิ้น — แก้ไขรวม ${totalChanged} เรคคอร์ด จาก ${targets.length} ไฟล์`, "ok");
 });
 
+btnExportAll.addEventListener("click", async () => {
+  const targets = fileEntries.filter((e) => e.workId);
+  if (!targets.length) return;
+  setStatus(`กำลังส่งออก ${targets.length} ไฟล์...`);
+  let savedCount = 0;
+  for (const entry of targets) {
+    if (await exportEntry(entry)) savedCount++;
+  }
+  setStatus(`ส่งออกไฟล์เสร็จสิ้น — บันทึกสำเร็จ ${savedCount} จาก ${targets.length} ไฟล์`, "ok");
+});
+
 async function exportEntry(entry) {
-  if (!entry.workId) return;
+  if (!entry.workId) return false;
 
   if (supportsFileSystemAccess) {
     try {
@@ -217,19 +230,22 @@ async function exportEntry(entry) {
       const res = await fetch(`/api/export/${entry.workId}`);
       if (!res.ok) {
         setStatus(`ส่งออกไฟล์ "${entry.fileName}" ไม่สำเร็จ`, "error");
-        return;
+        return false;
       }
       const blob = await res.blob();
       const writable = await saveHandle.createWritable();
       await writable.write(blob);
       await writable.close();
       setStatus(`บันทึกไฟล์ "${saveHandle.name}" สำเร็จ`, "ok");
+      return true;
     } catch (err) {
       if (err.name !== "AbortError") {
         setStatus(`บันทึกไฟล์ "${entry.fileName}" ไม่สำเร็จ: ` + err, "error");
       }
+      return false;
     }
   } else {
     window.location.href = `/api/export/${entry.workId}`;
+    return true;
   }
 }
