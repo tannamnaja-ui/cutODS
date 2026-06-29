@@ -1,51 +1,93 @@
 const btnImport = document.getElementById("btnImport");
 const fileInputFallback = document.getElementById("fileInputFallback");
-const fileLabel = document.getElementById("fileLabel");
 const btnCut = document.getElementById("btnCut");
-const btnExport = document.getElementById("btnExport");
 const statusEl = document.getElementById("status");
-const tableHead = document.getElementById("tableHead");
-const tableBody = document.getElementById("tableBody");
+const filesContainer = document.getElementById("filesContainer");
 
 const supportsFileSystemAccess = "showOpenFilePicker" in window;
 
-let workId = null;
-let fields = [];
-let importFileName = null;
-let importFileHandle = null; // ใช้เปิด save dialog ใน folder เดิมของไฟล์นำเข้า
+// แต่ละไฟล์ที่นำเข้า: { workId, fileName, fileHandle, fields, an_field_found, card, infoEl, tableHead, tableBody, exportBtn }
+let fileEntries = [];
 
 function setStatus(msg, cls) {
   statusEl.textContent = msg;
   statusEl.className = "status" + (cls ? " " + cls : "");
 }
 
-function renderTable(rows) {
-  tableHead.innerHTML = "";
-  fields.forEach((f) => {
+function renderFileTable(entry, rows) {
+  entry.tableHead.innerHTML = "";
+  entry.fields.forEach((f) => {
     const th = document.createElement("th");
     th.textContent = f;
     if (f.toUpperCase() === "AN") th.classList.add("an-col");
-    tableHead.appendChild(th);
+    entry.tableHead.appendChild(th);
   });
 
-  tableBody.innerHTML = "";
+  entry.tableBody.innerHTML = "";
   rows.forEach((row) => {
     const tr = document.createElement("tr");
-    fields.forEach((f) => {
+    entry.fields.forEach((f) => {
       const td = document.createElement("td");
       td.textContent = row[f] ?? "";
       if (f.toUpperCase() === "AN") td.classList.add("an-col");
       tr.appendChild(td);
     });
-    tableBody.appendChild(tr);
+    entry.tableBody.appendChild(tr);
   });
 }
 
-async function handleImportedFile(file) {
-  fileLabel.textContent = file.name;
-  setStatus("กำลังนำเข้าไฟล์...");
-  btnCut.disabled = true;
-  btnExport.disabled = true;
+function createFileCard(fileName) {
+  const card = document.createElement("section");
+  card.className = "file-card";
+
+  const header = document.createElement("div");
+  header.className = "file-card-header";
+
+  const nameEl = document.createElement("span");
+  nameEl.className = "file-name";
+  nameEl.textContent = fileName;
+
+  const infoEl = document.createElement("span");
+  infoEl.className = "file-info";
+  infoEl.textContent = "กำลังนำเข้า...";
+
+  const exportBtn = document.createElement("button");
+  exportBtn.textContent = "ส่งออกเป็น DBF";
+  exportBtn.disabled = true;
+
+  header.appendChild(nameEl);
+  header.appendChild(infoEl);
+  header.appendChild(exportBtn);
+
+  const tableWrap = document.createElement("div");
+  tableWrap.className = "table-wrap";
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  thead.appendChild(headRow);
+  const tbody = document.createElement("tbody");
+  table.appendChild(thead);
+  table.appendChild(tbody);
+  tableWrap.appendChild(table);
+
+  card.appendChild(header);
+  card.appendChild(tableWrap);
+  filesContainer.appendChild(card);
+
+  return { card, infoEl, exportBtn, tableHead: headRow, tableBody: tbody };
+}
+
+async function importOneFile(file, fileHandle) {
+  const ui = createFileCard(file.name);
+  const entry = {
+    workId: null,
+    fileName: file.name,
+    fileHandle: fileHandle || null,
+    fields: [],
+    an_field_found: false,
+    ...ui,
+  };
+  fileEntries.push(entry);
 
   const formData = new FormData();
   formData.append("file", file);
@@ -54,42 +96,60 @@ async function handleImportedFile(file) {
     const res = await fetch("/api/upload", { method: "POST", body: formData });
     const data = await res.json();
     if (!res.ok) {
-      setStatus(data.error || "เกิดข้อผิดพลาด", "error");
+      entry.infoEl.textContent = data.error || "เกิดข้อผิดพลาด";
+      entry.infoEl.className = "file-info error";
       return;
     }
 
-    workId = data.work_id;
-    fields = data.fields;
-    importFileName = data.filename;
-    renderTable(data.rows);
+    entry.workId = data.work_id;
+    entry.fields = data.fields;
+    entry.an_field_found = data.an_field_found;
+    renderFileTable(entry, data.rows);
 
-    let msg = `นำเข้าไฟล์ "${data.filename}" สำเร็จ — ทั้งหมด ${data.total_records} เรคคอร์ด`;
+    let msg = `${data.total_records} เรคคอร์ด`;
     if (data.total_records > data.preview_limit) {
-      msg += ` (แสดงตัวอย่าง ${data.preview_limit} แถวแรก ส่วนการตัด ODS/ส่งออกจะทำกับข้อมูลทั้งหมด)`;
+      msg += ` (แสดงตัวอย่าง ${data.preview_limit} แถวแรก)`;
     }
     if (!data.an_field_found) {
-      msg += "\nคำเตือน: ไม่พบฟิลด์ AN ในไฟล์นี้";
-      setStatus(msg, "error");
-      btnCut.disabled = true;
+      msg += " — ไม่พบฟิลด์ AN ในไฟล์นี้";
+      entry.infoEl.className = "file-info error";
     } else {
-      setStatus(msg, "ok");
-      btnCut.disabled = false;
+      entry.infoEl.className = "file-info ok";
     }
-    btnExport.disabled = false;
+    entry.infoEl.textContent = msg;
+    entry.exportBtn.disabled = false;
+    entry.exportBtn.addEventListener("click", () => exportEntry(entry));
   } catch (err) {
-    setStatus("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ: " + err, "error");
+    entry.infoEl.textContent = "เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ: " + err;
+    entry.infoEl.className = "file-info error";
   }
+}
+
+async function importFiles(files) {
+  setStatus(`กำลังนำเข้า ${files.length} ไฟล์...`);
+  for (const file of files) {
+    await importOneFile(file);
+  }
+  const anyAn = fileEntries.some((e) => e.an_field_found);
+  btnCut.disabled = !anyAn;
+  setStatus(`นำเข้าไฟล์สำเร็จ ${fileEntries.length} ไฟล์`, "ok");
 }
 
 btnImport.addEventListener("click", async () => {
   if (supportsFileSystemAccess) {
     try {
-      const [handle] = await window.showOpenFilePicker({
+      const handles = await window.showOpenFilePicker({
+        multiple: true,
         types: [{ description: "DBF File", accept: { "application/octet-stream": [".dbf"] } }],
       });
-      importFileHandle = handle;
-      const file = await handle.getFile();
-      await handleImportedFile(file);
+      setStatus(`กำลังนำเข้า ${handles.length} ไฟล์...`);
+      for (const handle of handles) {
+        const file = await handle.getFile();
+        await importOneFile(file, handle);
+      }
+      const anyAn = fileEntries.some((e) => e.an_field_found);
+      btnCut.disabled = !anyAn;
+      setStatus(`นำเข้าไฟล์สำเร็จ ${fileEntries.length} ไฟล์`, "ok");
     } catch (err) {
       if (err.name !== "AbortError") {
         setStatus("เลือกไฟล์ไม่สำเร็จ: " + err, "error");
@@ -101,44 +161,53 @@ btnImport.addEventListener("click", async () => {
 });
 
 fileInputFallback.addEventListener("change", async () => {
-  const file = fileInputFallback.files[0];
-  if (!file) return;
-  importFileHandle = null; // ไม่สามารถจดจำ folder เดิมได้ในเบราว์เซอร์นี้
-  await handleImportedFile(file);
+  const files = Array.from(fileInputFallback.files || []);
+  if (!files.length) return;
+  await importFiles(files);
+  fileInputFallback.value = "";
 });
 
 btnCut.addEventListener("click", async () => {
-  if (!workId) return;
-  setStatus("กำลังตัดคำว่า ODS ...");
-  try {
-    const res = await fetch(`/api/cut/${workId}`, { method: "POST" });
-    const data = await res.json();
-    if (!res.ok) {
-      setStatus(data.error || "เกิดข้อผิดพลาด", "error");
-      return;
+  const targets = fileEntries.filter((e) => e.workId && e.an_field_found);
+  if (!targets.length) return;
+  setStatus(`กำลังตัดคำว่า ODS ใน ${targets.length} ไฟล์...`);
+  let totalChanged = 0;
+  for (const entry of targets) {
+    try {
+      const res = await fetch(`/api/cut/${entry.workId}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        entry.infoEl.textContent = data.error || "เกิดข้อผิดพลาด";
+        entry.infoEl.className = "file-info error";
+        continue;
+      }
+      renderFileTable(entry, data.rows);
+      totalChanged += data.changed_count;
+      entry.infoEl.textContent = `${data.total_records} เรคคอร์ด — ตัด ODS แล้ว ${data.changed_count} รายการ`;
+      entry.infoEl.className = "file-info ok";
+    } catch (err) {
+      entry.infoEl.textContent = "เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ: " + err;
+      entry.infoEl.className = "file-info error";
     }
-    renderTable(data.rows);
-    setStatus(`ตัดคำว่า ODS สำเร็จ แก้ไขแล้ว ${data.changed_count} เรคคอร์ด จากทั้งหมด ${data.total_records} เรคคอร์ด`, "ok");
-  } catch (err) {
-    setStatus("เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ: " + err, "error");
   }
+  setStatus(`ตัดคำว่า ODS เสร็จสิ้น — แก้ไขรวม ${totalChanged} เรคคอร์ด จาก ${targets.length} ไฟล์`, "ok");
 });
 
-btnExport.addEventListener("click", async () => {
-  if (!workId) return;
+async function exportEntry(entry) {
+  if (!entry.workId) return;
 
   if (supportsFileSystemAccess) {
     try {
       const pickerOpts = {
-        suggestedName: importFileName,
+        suggestedName: entry.fileName,
         types: [{ description: "DBF File", accept: { "application/octet-stream": [".dbf"] } }],
       };
-      if (importFileHandle) pickerOpts.startIn = importFileHandle;
+      if (entry.fileHandle) pickerOpts.startIn = entry.fileHandle;
 
       const saveHandle = await window.showSaveFilePicker(pickerOpts);
-      const res = await fetch(`/api/export/${workId}`);
+      const res = await fetch(`/api/export/${entry.workId}`);
       if (!res.ok) {
-        setStatus("ส่งออกไฟล์ไม่สำเร็จ", "error");
+        setStatus(`ส่งออกไฟล์ "${entry.fileName}" ไม่สำเร็จ`, "error");
         return;
       }
       const blob = await res.blob();
@@ -148,10 +217,10 @@ btnExport.addEventListener("click", async () => {
       setStatus(`บันทึกไฟล์ "${saveHandle.name}" สำเร็จ`, "ok");
     } catch (err) {
       if (err.name !== "AbortError") {
-        setStatus("บันทึกไฟล์ไม่สำเร็จ: " + err, "error");
+        setStatus(`บันทึกไฟล์ "${entry.fileName}" ไม่สำเร็จ: ` + err, "error");
       }
     }
   } else {
-    window.location.href = `/api/export/${workId}`;
+    window.location.href = `/api/export/${entry.workId}`;
   }
-});
+}

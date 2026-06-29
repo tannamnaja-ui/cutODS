@@ -55,12 +55,39 @@ button:hover:not(:disabled) { background: #163a5c; }
 .status.error { color: #b00020; font-weight: bold; }
 .status.ok { color: #1a7a32; }
 
-.table-wrap {
-  overflow: auto;
-  max-height: 70vh;
+.file-card {
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  margin-bottom: 18px;
+  overflow: hidden;
+}
+
+.file-card-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  background: #eef3f8;
+  border-bottom: 1px solid #dde5ec;
+  flex-wrap: wrap;
+}
+.file-card-header .file-name {
+  font-weight: bold;
+  color: #1f4e79;
+}
+.file-card-header .file-info {
+  font-size: 13px;
+  color: #555;
+  flex: 1;
+}
+.file-card-header .file-info.error { color: #b00020; font-weight: bold; }
+.file-card-header .file-info.ok { color: #1a7a32; }
+
+.table-wrap {
+  overflow: auto;
+  max-height: 50vh;
+  background: #fff;
 }
 
 table { border-collapse: collapse; width: 100%; font-size: 13px; }
