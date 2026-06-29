@@ -1,5 +1,5 @@
 #define MyAppName "CUTODSAN_FOR_DRG"
-#define MyAppVersion "1.2.0"
+#define MyAppVersion "1.3.0"
 #define MyAppExeName "CUTODSAN_FOR_DRG.exe"
 [Setup]
 AppId={{B6F1D1F4-6C2A-4E1E-9F0E-7B2C2B6B9F11}
