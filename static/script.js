@@ -4,8 +4,17 @@ const btnCut = document.getElementById("btnCut");
 const btnExportAll = document.getElementById("btnExportAll");
 const statusEl = document.getElementById("status");
 const filesContainer = document.getElementById("filesContainer");
+const introOverlay = document.getElementById("introOverlay");
+const btnCloseIntro = document.getElementById("btnCloseIntro");
 
 const supportsFileSystemAccess = "showOpenFilePicker" in window;
+
+btnCloseIntro.addEventListener("click", () => {
+  introOverlay.classList.add("hidden");
+});
+introOverlay.addEventListener("click", (e) => {
+  if (e.target === introOverlay) introOverlay.classList.add("hidden");
+});
 
 // แต่ละไฟล์ที่นำเข้า: { workId, fileName, fileHandle, fields, an_field_found, card, infoEl, tableHead, tableBody, exportBtn }
 let fileEntries = [];
