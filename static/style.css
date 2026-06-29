@@ -13,47 +13,34 @@ header {
 header h1 { margin: 0; font-size: 20px; }
 main { padding: 20px 24px; }
 
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  padding: 20px;
-}
-.modal-overlay.hidden { display: none; }
-
-.modal-box {
+.intro-box {
+  max-width: 700px;
+  margin: 20px auto 0;
   background: #fff;
   border-radius: 10px;
-  padding: 24px 28px;
-  max-width: 560px;
-  width: 100%;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+  padding: 20px 28px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  text-align: center;
 }
-.modal-box h2 {
+.intro-box h2 {
   margin: 0 0 12px;
   color: #1f4e79;
   font-size: 19px;
 }
-.modal-box p {
+.intro-box p {
   margin: 0 0 14px;
   font-size: 14px;
   color: #333;
   line-height: 1.6;
 }
-.modal-box ol {
-  margin: 0 0 18px;
+.intro-box ol {
+  margin: 0;
   padding-left: 22px;
   font-size: 14px;
   color: #333;
   line-height: 1.7;
-}
-.modal-box button {
-  display: block;
-  margin: 0 auto;
+  text-align: left;
+  display: inline-block;
 }
 
 .panel {
