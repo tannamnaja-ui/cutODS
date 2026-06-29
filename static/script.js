@@ -104,35 +104,40 @@ async function importOneFile(file, fileHandle) {
     entry.workId = data.work_id;
     entry.fields = data.fields;
     entry.an_field_found = data.an_field_found;
-    renderFileTable(entry, data.rows);
 
+    if (!data.an_field_found) {
+      // ไม่มีฟิลด์ AN ในไฟล์นี้ — ไม่ต้องแสดงไฟล์นี้ในรายการ
+      entry.card.remove();
+      const idx = fileEntries.indexOf(entry);
+      if (idx !== -1) fileEntries.splice(idx, 1);
+      return false;
+    }
+
+    renderFileTable(entry, data.rows);
     let msg = `${data.total_records} เรคคอร์ด`;
     if (data.total_records > data.preview_limit) {
       msg += ` (แสดงตัวอย่าง ${data.preview_limit} แถวแรก)`;
     }
-    if (!data.an_field_found) {
-      msg += " — ไม่พบฟิลด์ AN ในไฟล์นี้";
-      entry.infoEl.className = "file-info error";
-    } else {
-      entry.infoEl.className = "file-info ok";
-    }
     entry.infoEl.textContent = msg;
+    entry.infoEl.className = "file-info ok";
     entry.exportBtn.disabled = false;
     entry.exportBtn.addEventListener("click", () => exportEntry(entry));
+    return true;
   } catch (err) {
     entry.infoEl.textContent = "เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ: " + err;
     entry.infoEl.className = "file-info error";
+    return true;
   }
 }
 
-async function importFiles(files) {
-  setStatus(`กำลังนำเข้า ${files.length} ไฟล์...`);
-  for (const file of files) {
-    await importOneFile(file);
+function finishImport(totalSelected, kept) {
+  const skipped = totalSelected - kept;
+  let msg = `นำเข้าไฟล์ที่มีฟิลด์ AN สำเร็จ ${kept} ไฟล์`;
+  if (skipped > 0) {
+    msg += ` (ข้าม ${skipped} ไฟล์ที่ไม่มีฟิลด์ AN)`;
   }
-  const anyAn = fileEntries.some((e) => e.an_field_found);
-  btnCut.disabled = !anyAn;
-  setStatus(`นำเข้าไฟล์สำเร็จ ${fileEntries.length} ไฟล์`, "ok");
+  btnCut.disabled = !fileEntries.some((e) => e.an_field_found);
+  setStatus(msg, kept > 0 ? "ok" : "error");
 }
 
 btnImport.addEventListener("click", async () => {
@@ -143,13 +148,12 @@ btnImport.addEventListener("click", async () => {
         types: [{ description: "DBF File", accept: { "application/octet-stream": [".dbf"] } }],
       });
       setStatus(`กำลังนำเข้า ${handles.length} ไฟล์...`);
+      let kept = 0;
       for (const handle of handles) {
         const file = await handle.getFile();
-        await importOneFile(file, handle);
+        if (await importOneFile(file, handle)) kept++;
       }
-      const anyAn = fileEntries.some((e) => e.an_field_found);
-      btnCut.disabled = !anyAn;
-      setStatus(`นำเข้าไฟล์สำเร็จ ${fileEntries.length} ไฟล์`, "ok");
+      finishImport(handles.length, kept);
     } catch (err) {
       if (err.name !== "AbortError") {
         setStatus("เลือกไฟล์ไม่สำเร็จ: " + err, "error");
@@ -163,7 +167,12 @@ btnImport.addEventListener("click", async () => {
 fileInputFallback.addEventListener("change", async () => {
   const files = Array.from(fileInputFallback.files || []);
   if (!files.length) return;
-  await importFiles(files);
+  setStatus(`กำลังนำเข้า ${files.length} ไฟล์...`);
+  let kept = 0;
+  for (const file of files) {
+    if (await importOneFile(file)) kept++;
+  }
+  finishImport(files.length, kept);
   fileInputFallback.value = "";
 });
 
