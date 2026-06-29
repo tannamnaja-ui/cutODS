@@ -1,5 +1,5 @@
 #define MyAppName "CUTODSAN_FOR_DRG"
-#define MyAppVersion "1.4.0"
+#define MyAppVersion "1.5.0"
 #define MyAppExeName "CUTODSAN_FOR_DRG.exe"
 [Setup]
 AppId={{B6F1D1F4-6C2A-4E1E-9F0E-7B2C2B6B9F11}
@@ -36,9 +36,27 @@ Name: "{group}\ถอนการติดตั้ง {#MyAppName}"; Filename: 
 
 [Run]
 Filename: "{tmp}\vc_redist.x64.exe"; Parameters: "/install /quiet /norestart"; StatusMsg: "กำลังติดตั้งส่วนประกอบที่จำเป็น (Visual C++ Runtime)..."; Check: VCRedistNeedsInstall; Flags: waituntilterminated
-Filename: "{app}\{#MyAppExeName}"; Description: "เปิดโปรแกรม {#MyAppName}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; Description: "เปิดโปรแกรม {#MyAppName}"; Flags: nowait postinstall skipifsilent; Check: ShouldLaunchAfterInstall
 
 [Code]
+function ShouldLaunchAfterInstall: Boolean;
+var
+  I: Integer;
+  Param: String;
+begin
+  // กันไม่ให้โปรแกรมเปิดขึ้นเองตอนติดตั้งแบบ silent/unattended
+  Result := True;
+  for I := 1 to ParamCount do
+  begin
+    Param := Uppercase(ParamStr(I));
+    if (Param = '/SILENT') or (Param = '/VERYSILENT') then
+    begin
+      Result := False;
+      Exit;
+    end;
+  end;
+end;
+
 function VCRedistNeedsInstall: Boolean;
 var
   Installed: Cardinal;
@@ -49,6 +67,15 @@ begin
     if Installed = 1 then
       Result := False;
   end;
+end;
+
+procedure KillRunningApp;
+var
+  ResultCode: Integer;
+begin
+  // ปิดโปรแกรมที่กำลังรันอยู่ก่อน ไม่ให้ไฟล์ .exe ถูกล็อกตอนเขียนทับ/ถอนการติดตั้ง
+  Exec(ExpandConstant('{cmd}'), '/C taskkill /F /IM "{#MyAppExeName}" /T', '', SW_HIDE,
+    ewWaitUntilTerminated, ResultCode);
 end;
 
 procedure SilentlyUninstallPrevious;
@@ -64,6 +91,7 @@ begin
 
   if UninstallString <> '' then
   begin
+    KillRunningApp;
     UninstallString := RemoveQuotes(UninstallString);
     Exec(UninstallString, '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CLOSEAPPLICATIONS', '', SW_HIDE,
       ewWaitUntilTerminated, ResultCode);
@@ -74,4 +102,11 @@ function InitializeSetup: Boolean;
 begin
   SilentlyUninstallPrevious;
   Result := True;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  // กันไว้อีกชั้น เผื่อโปรแกรมถูกเปิดขึ้นมาใหม่ระหว่างขั้นตอนติดตั้ง (เช่นจาก Run entry ของเวอร์ชันเดิม)
+  KillRunningApp;
+  Result := '';
 end;
