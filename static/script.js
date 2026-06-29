@@ -204,15 +204,112 @@ btnCut.addEventListener("click", async () => {
   setStatus(`ตัดคำว่า ODS เสร็จสิ้น — แก้ไขรวม ${totalChanged} เรคคอร์ด จาก ${targets.length} ไฟล์`, "ok");
 });
 
+function timestampFolderName() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `cutODS_export_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+
+function uniqueName(name, usedNames) {
+  if (!usedNames.has(name)) {
+    usedNames.add(name);
+    return name;
+  }
+  const dotIdx = name.lastIndexOf(".");
+  const base = dotIdx === -1 ? name : name.slice(0, dotIdx);
+  const ext = dotIdx === -1 ? "" : name.slice(dotIdx);
+  let i = 2;
+  let candidate = `${base}_${i}${ext}`;
+  while (usedNames.has(candidate)) {
+    i++;
+    candidate = `${base}_${i}${ext}`;
+  }
+  usedNames.add(candidate);
+  return candidate;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 btnExportAll.addEventListener("click", async () => {
   const targets = fileEntries.filter((e) => e.workId);
   if (!targets.length) return;
-  setStatus(`กำลังส่งออก ${targets.length} ไฟล์...`);
-  let savedCount = 0;
-  for (const entry of targets) {
-    if (await exportEntry(entry)) savedCount++;
+
+  if ("showDirectoryPicker" in window) {
+    let parentDirHandle;
+    try {
+      parentDirHandle = await window.showDirectoryPicker();
+    } catch (err) {
+      if (err.name !== "AbortError") {
+        setStatus("เลือกโฟลเดอร์ไม่สำเร็จ: " + err, "error");
+      }
+      return;
+    }
+
+    const folderName = timestampFolderName();
+    let exportDirHandle;
+    try {
+      exportDirHandle = await parentDirHandle.getDirectoryHandle(folderName, { create: true });
+    } catch (err) {
+      setStatus("สร้างโฟลเดอร์สำหรับส่งออกไม่สำเร็จ: " + err, "error");
+      return;
+    }
+
+    setStatus(`กำลังส่งออก ${targets.length} ไฟล์ ไปที่โฟลเดอร์ "${folderName}"...`);
+    const usedNames = new Set();
+    let savedCount = 0;
+    for (const entry of targets) {
+      try {
+        const res = await fetch(`/api/export/${entry.workId}`);
+        if (!res.ok) {
+          entry.infoEl.textContent = `ส่งออกไฟล์ "${entry.fileName}" ไม่สำเร็จ`;
+          entry.infoEl.className = "file-info error";
+          continue;
+        }
+        const blob = await res.blob();
+        const name = uniqueName(entry.fileName, usedNames);
+        const fileHandle = await exportDirHandle.getFileHandle(name, { create: true });
+        const writable = await fileHandle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        savedCount++;
+      } catch (err) {
+        entry.infoEl.textContent = `ส่งออกไฟล์ "${entry.fileName}" ไม่สำเร็จ: ` + err;
+        entry.infoEl.className = "file-info error";
+      }
+    }
+    setStatus(`ส่งออกไฟล์เสร็จสิ้น — บันทึกสำเร็จ ${savedCount} จาก ${targets.length} ไฟล์ ไปที่โฟลเดอร์ "${folderName}"`, "ok");
+  } else {
+    // เบราว์เซอร์ไม่รองรับการเลือกโฟลเดอร์ (เช่น Firefox) — ดาวน์โหลดทีละไฟล์ไปที่โฟลเดอร์ดาวน์โหลดเริ่มต้น
+    setStatus(`กำลังส่งออก ${targets.length} ไฟล์ ไปที่โฟลเดอร์ดาวน์โหลดเริ่มต้นของเบราว์เซอร์...`);
+    let savedCount = 0;
+    for (const entry of targets) {
+      try {
+        const res = await fetch(`/api/export/${entry.workId}`);
+        if (!res.ok) {
+          entry.infoEl.textContent = `ส่งออกไฟล์ "${entry.fileName}" ไม่สำเร็จ`;
+          entry.infoEl.className = "file-info error";
+          continue;
+        }
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = entry.fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        savedCount++;
+        await sleep(300);
+      } catch (err) {
+        entry.infoEl.textContent = `ส่งออกไฟล์ "${entry.fileName}" ไม่สำเร็จ: ` + err;
+        entry.infoEl.className = "file-info error";
+      }
+    }
+    setStatus(`ส่งออกไฟล์เสร็จสิ้น — บันทึกสำเร็จ ${savedCount} จาก ${targets.length} ไฟล์ (ไปที่โฟลเดอร์ดาวน์โหลดเริ่มต้น)`, "ok");
   }
-  setStatus(`ส่งออกไฟล์เสร็จสิ้น — บันทึกสำเร็จ ${savedCount} จาก ${targets.length} ไฟล์`, "ok");
 });
 
 async function exportEntry(entry) {
