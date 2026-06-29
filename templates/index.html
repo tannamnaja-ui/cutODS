@@ -10,17 +10,6 @@
     <h1>โปรแกรมตัดคำว่า ODS ออกจากฟิลด์ AN (ไฟล์ DBF)</h1>
   </header>
 
-  <section class="intro-box">
-    <h2>โปรแกรมตัด AN ที่เป็น ODS เพื่อนำเข้า DRG</h2>
-    <p>เนื่องจาก DRG รับ AN ได้แค่ 9 ตัว ทำให้ต้องตัดคำว่า ODS ที่นำหน้า AN ออกก่อนนำเข้า</p>
-    <ol>
-      <li>นำเข้าไฟล์ DBF ได้ เลือกทั้งหมดใน Folder ได้ แต่ไฟล์จะนำเข้าเฉพาะแฟ้มที่มี AN</li>
-      <li>กดปุ่ม "ตัด ODS (ทุกไฟล์)" จะทำการตัดคำว่า ODS หน้า AN ออกให้</li>
-      <li>"ส่งออกทุกไฟล์" สามารถกดส่งออกทุกไฟล์แล้วนำไปแทนที่ไฟล์เดิมได้</li>
-      <li>สามารถส่งออกทีละแฟ้มได้</li>
-    </ol>
-  </section>
-
   <main>
     <section class="panel">
       <div class="file-picker">
@@ -35,7 +24,18 @@
 
     <section id="status" class="status"></section>
 
-    <section id="filesContainer"></section>
+    <section id="filesContainer">
+      <div id="introBox" class="intro-box">
+        <h2>โปรแกรมตัด AN ที่เป็น ODS เพื่อนำเข้า DRG</h2>
+        <p>เนื่องจาก DRG รับ AN ได้แค่ 9 ตัว ทำให้ต้องตัดคำว่า ODS ที่นำหน้า AN ออกก่อนนำเข้า</p>
+        <ol>
+          <li>นำเข้าไฟล์ DBF ได้ เลือกทั้งหมดใน Folder ได้ แต่ไฟล์จะนำเข้าเฉพาะแฟ้มที่มี AN</li>
+          <li>กดปุ่ม "ตัด ODS (ทุกไฟล์)" จะทำการตัดคำว่า ODS หน้า AN ออกให้</li>
+          <li>"ส่งออกทุกไฟล์" สามารถกดส่งออกทุกไฟล์แล้วนำไปแทนที่ไฟล์เดิมได้</li>
+          <li>สามารถส่งออกทีละแฟ้มได้</li>
+        </ol>
+      </div>
+    </section>
   </main>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>

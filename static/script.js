@@ -37,6 +37,11 @@ function renderFileTable(entry, rows) {
   });
 }
 
+function removeIntroBox() {
+  const introBox = document.getElementById("introBox");
+  if (introBox) introBox.remove();
+}
+
 function createFileCard(fileName) {
   const card = document.createElement("section");
   card.className = "file-card";
@@ -97,6 +102,7 @@ async function importOneFile(file, fileHandle) {
     const res = await fetch("/api/upload", { method: "POST", body: formData });
     const data = await res.json();
     if (!res.ok) {
+      removeIntroBox();
       entry.infoEl.textContent = data.error || "เกิดข้อผิดพลาด";
       entry.infoEl.className = "file-info error";
       return;
@@ -114,6 +120,7 @@ async function importOneFile(file, fileHandle) {
       return false;
     }
 
+    removeIntroBox();
     renderFileTable(entry, data.rows);
     let msg = `${data.total_records} เรคคอร์ด`;
     if (data.total_records > data.preview_limit) {
@@ -125,6 +132,7 @@ async function importOneFile(file, fileHandle) {
     entry.exportBtn.addEventListener("click", () => exportEntry(entry));
     return true;
   } catch (err) {
+    removeIntroBox();
     entry.infoEl.textContent = "เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ: " + err;
     entry.infoEl.className = "file-info error";
     return true;
